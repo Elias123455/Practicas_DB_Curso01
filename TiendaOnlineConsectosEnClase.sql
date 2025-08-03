@@ -341,5 +341,159 @@ FROM
     CLIENTES c; -- 'c' es el alias para la tabla CLIENTES
     
     ----------------------------------------------------------------------------------------
+/* Alias para Columnas
+Esto  permite cambiar el nombre de una columna en el resultado de la consulta sin modificar 
+el nombre real de la columna en la tabla. Puedes usar la palabra clave AS (que es opcional).
+Sintaxis con AS (más legible)*/
+SELECT
+    nombre AS Nombre_Cliente,
+    apellido AS Apellido_Cliente
+FROM CLIENTES;
+
+--Sintaxis sin AS (más corta):
+SELECT
+    nombre Nombre_Cliente,
+    apellido Apellido_Cliente
+FROM CLIENTES;
+
+/* Alias para Tablas
+Esto  permite usar un nombre corto (normalmente una o dos letras) para 
+referirte a una tabla. Esto es indispensable para JOINs, donde necesitas 
+especificar de qué tabla viene cada columna.*/
+SELECT
+    c.cliente_id, -- 'c' es el alias para la tabla CLIENTES
+    c.nombre,
+    c.apellido,
+    c.ciudad,
+    c.pais
+FROM
+    CLIENTES c; -- Se define el alias 'c' aquí
+/*Como se ver en este ejemplo, en lugar de escribir CLIENTES.cliente_id,
+solo usamos c.cliente_id, lo que hace la consulta mucho más limpia.*/
+
+/* Objetivo: Agrupar datos, realizar cálculos sobre esos grupos y filtrar los filas agrupadas.
+GROUP BY: Esta cláusula se utiliza para agrupar filas que tienen los mismos valores en las 
+columnas especificadas. El propósito principal es poder aplicar funciones de agregación 
+(o de grupo) a cada grupo por separado.
+Funciones de Grupo: Son funciones que operan en un conjunto de filas y devuelven un único valor
+por grupo. Las más comunes son: COUNT(), SUM(), AVG(), MAX() y MIN().*/
+
+/*HAVING: Esta cláusula se utiliza para filtrar los grupos creados por GROUP BY. A diferencia de WHERE 
+(que filtra filas individuales antes de la agrupación), HAVING filtra los grupos
+después de que se han formado y las funciones de grupo se han aplicado.*/
+
+/*Para contar cuántos pedidos ha realizado cada cliente, 
+La consulta agrupa todas las filas de la tabla PEDIDOS por el cliente_id y luego cuenta cuántos 
+pedidos hay en cada grupo.*/
+SELECT
+    cliente_id,
+    COUNT(pedido_id) AS total_pedidos
+FROM
+    PEDIDOS
+GROUP BY
+    cliente_id;
     
+/*    Uso de SUM() y AVG()
+Para calcular el total gastado en cada pedido, el asistente propone la siguiente consulta:*/
+SELECT
+    pedido_id,
+    SUM(subtotal_linea) AS subtotal_total_pedido
+FROM
+    DETALLE_PEDIDO
+GROUP BY
+    pedido_id;
     
+/* Uso de HAVING (filtrando grupos)
+Para encontrar solo los clientes que han realizado más de un pedido, 
+el asistente indica que se debe usar HAVING para filtrar el resultado de la función COUNT():*/
+SELECT
+    cliente_id,
+    COUNT(pedido_id) AS total_pedidos
+FROM
+    PEDIDOS
+GROUP BY
+    cliente_id
+HAVING
+    COUNT(pedido_id) > 1;
+
+/*El INNER JOIN no se limita a unir solo dos tablas. Se pueden unir tantas tablas 
+como sean necesarias para obtener la información deseada, siempre que exista una columna 
+común entre ellas. Esto se realiza encadenando las cláusulas INNER JOIN.
+Objetivo: Obtener información que se encuentra distribuida en tres tablas diferentes, combinando los datos en una sola consulta.
+Ejemplo práctico con las tablas de la base de datos:
+Para ver el nombre de los clientes, sus pedidos, y los productos específicos 
+que compraron en cada uno de esos pedidos, es necesario unir las tablas CLIENTES, PEDIDOS y DETALLE_PEDIDO.*/
+SELECT
+    c.nombre,
+    c.apellido,
+    p.pedido_id,
+    dp.cantidad,
+    dp.subtotal_linea
+FROM
+    CLIENTES c
+INNER JOIN
+    PEDIDOS p ON c.cliente_id = p.cliente_id
+INNER JOIN
+    DETALLE_PEDIDO dp ON p.pedido_id = dp.pedido_id;
+    
+    /*Explicación de la consulta:
+
+FROM CLIENTES c: Iniciar la consulta desde la tabla CLIENTES.
+
+INNER JOIN PEDIDOS p ON c.cliente_id = p.cliente_id: Unir la tabla PEDIDOS con 
+la tabla CLIENTES, utilizando la columna cliente_id como enlace común.
+
+INNER JOIN DETALLE_PEDIDO dp ON p.pedido_id = dp.pedido_id: Unir el resultado de 
+la unión anterior con la tabla DETALLE_PEDIDO, utilizando la columna pedido_id como enlace.
+
+El resultado será una lista donde cada fila contendrá el nombre del cliente y los detalles de cada producto que compró.*/
+
+----------------------------------------------------------------------------------
+
+/*El LEFT JOIN (también conocido como LEFT OUTER JOIN) permite obtener todas las filas de la tabla 
+de la izquierda, sin importar si existe una coincidencia en la tabla de la derecha. Las filas 
+que no tienen coincidencia en la tabla de la derecha se mostrarán con valores nulos (NULL) en las columnas de esa tabla.
+
+Objetivo: Mostrar todos los clientes, incluyendo aquellos que no han realizado ningún pedido.
+Ejemplo práctico con las tablas de la base de datos:
+Para ver una lista completa de todos los clientes y, si han hecho un pedido, ver el ID de 
+su pedido, es necesario usar un LEFT JOIN. Si se utilizara un INNER JOIN, solo se verían los clientes que tienen al menos un pedido.*/
+SELECT
+    c.nombre,
+    c.apellido,
+    p.pedido_id,
+    p.estado_pedido
+FROM
+    CLIENTES c
+LEFT JOIN
+    PEDIDOS p ON c.cliente_id = p.cliente_id;
+    
+    /* Explicación de la consulta:
+FROM CLIENTES c: La tabla de la izquierda (CLIENTES) es la que se usará como base para el resultado.
+LEFT JOIN PEDIDOS p: Unir la tabla PEDIDOS.
+ON c.cliente_id = p.cliente_id: La condición de unión sigue siendo la misma.
+El resultado de esta consulta mostrará todos los clientes de la tabla CLIENTES. Los clientes que
+no han realizado un pedido aparecerán en la lista, pero sus columnas de pedido_id y estado_pedido se mostrarán como NULL.*/
+------------------------------------------------------------------------------------------------------
+
+/*El RIGHT JOIN (también conocido como RIGHT OUTER JOIN) funciona de manera opuesta al LEFT JOIN. 
+Este tipo de unión permite obtener todas las filas de la tabla de la derecha, sin importar si existe
+una coincidencia en la tabla de la izquierda. Las filas de la tabla izquierda que no tienen coincidencia se mostrarán como NULL.
+Objetivo: Mostrar todos los productos, incluyendo aquellos que no han sido vendidos en ningún pedido.
+Ejemplo práctico con las tablas de la base de datos:
+Para ver una lista completa de todos los productos y, si han sido vendidos, ver los detalles de su pedido, se puede usar un RIGHT JOIN.*/
+SELECT
+    p.nombre_producto,
+    dp.pedido_id,
+    dp.cantidad
+FROM
+    DETALLE_PEDIDO dp
+RIGHT JOIN
+    PRODUCTOS p ON dp.producto_id = p.producto_id;
+--Explicación de la consulta:
+
+/*FROM DETALLE_PEDIDO dp: La tabla de la izquierda es DETALLE_PEDIDO.
+RIGHT JOIN PRODUCTOS p: La tabla de la derecha (PRODUCTOS) es la que se usará como base para el resultado.
+ON dp.producto_id = p.producto_id: La condición de unión.
+El resultado de esta consulta mostrará todos los productos de la tabla PRODUCTOS. Los productos que 
+no han sido incluidos en ningún detalle de pedido aparecerán en la lista, pero sus columnas de pedido_id y cantidad se mostrarán como NULL.*/
