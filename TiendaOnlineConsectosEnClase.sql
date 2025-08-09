@@ -497,3 +497,214 @@ RIGHT JOIN PRODUCTOS p: La tabla de la derecha (PRODUCTOS) es la que se usará co
 ON dp.producto_id = p.producto_id: La condición de unión.
 El resultado de esta consulta mostrará todos los productos de la tabla PRODUCTOS. Los productos que 
 no han sido incluidos en ningún detalle de pedido aparecerán en la lista, pero sus columnas de pedido_id y cantidad se mostrarán como NULL.*/
+-----------------------------------------------------------------------------------------------------------------------
+
+/*
+Creación de Procedimientos Almacenados
+¿Qué es?
+Un bloque de código SQL guardado en la base de datos que puedes ejecutar por su nombre.
+No devuelve un valor directamente, simplemente realiza una acción (como insertar, actualizar o eliminar datos).
+
+¿Para qué sirve?
+Para encapsular lógica repetitiva. Por ejemplo, en lugar de escribir 3 INSERTs cada vez que creas un pedido, lo metes en un procedimiento y solo lo llamas.
+
+Ejemplo Práctico:
+Este procedimiento crea un nuevo pedido para un cliente específico.*/
+CREATE OR REPLACE PROCEDURE sp_crear_nuevo_pedido (
+    p_cliente_id IN CLIENTES.cliente_id%TYPE
+) AS
+BEGIN
+    INSERT INTO PEDIDOS (pedido_id, cliente_id, estado_pedido)
+    VALUES ((SELECT NVL(MAX(pedido_id), 1000) + 1 FROM PEDIDOS), p_cliente_id, 'Pendiente');
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Pedido creado exitosamente para el cliente ' || p_cliente_id);
+END;
+/
+
+-- Cómo usarlo:
+BEGIN
+    sp_crear_nuevo_pedido(p_cliente_id => 4); -- Crea un pedido para Carlos Ramírez
+END;
+/
+---------------------------------------------------------------------------------------------------
+/*
+Creación de Triggers
+¿Qué es?
+Un tipo especial de procedimiento que se ejecuta automáticamente cuando ocurre un evento específico en una tabla (un INSERT, UPDATE o DELETE).
+
+¿Para qué sirve?
+Para mantener la integridad de los datos de forma automática. 
+El caso de uso clásico es actualizar un total en una tabla maestra cuando se modifica una tabla de detalle.
+
+Ejemplo Práctico:
+Este trigger actualiza el total_pedido en la tabla PEDIDOS cada vez que se añade, modifica o elimina un producto en DETALLE_PEDIDO.
+*/
+CREATE OR REPLACE TRIGGER trg_actualizar_total_pedido
+AFTER INSERT OR UPDATE OR DELETE ON DETALLE_PEDIDO
+FOR EACH ROW
+DECLARE
+    v_pedido_id NUMBER;
+BEGIN
+    -- Determina cuál pedido_id se vio afectado
+    IF INSERTING OR UPDATING THEN
+        v_pedido_id := :NEW.pedido_id;
+    ELSE -- DELETING
+        v_pedido_id := :OLD.pedido_id;
+    END IF;
+
+    -- Recalcula el total para ese pedido
+    UPDATE PEDIDOS
+    SET total_pedido = (SELECT SUM(subtotal_linea) FROM DETALLE_PEDIDO WHERE pedido_id = v_pedido_id)
+    WHERE pedido_id = v_pedido_id;
+
+END;
+/
+-----------------------------------------------------------------------------------------------------------
+/*
+Creación de Funciones
+¿Qué es?
+Similar a un procedimiento, pero con una diferencia clave: siempre devuelve un único valor.
+
+¿Para qué sirve?
+Para realizar cálculos complejos y reutilizarlos en tus consultas SELECT como si fueran una columna más.
+
+Ejemplo Práctico:
+Esta función calcula el gasto total de un cliente
+*/
+CREATE OR REPLACE FUNCTION fn_gasto_total_cliente (
+    p_cliente_id IN CLIENTES.cliente_id%TYPE
+) RETURN NUMBER AS
+    v_gasto_total NUMBER(10, 2);
+BEGIN
+    SELECT SUM(p.total_pedido)
+    INTO v_gasto_total
+    FROM PEDIDOS p
+    WHERE p.cliente_id = p_cliente_id
+      AND p.estado_pedido != 'Cancelado';
+      
+    RETURN NVL(v_gasto_total, 0);
+END;
+/
+
+-- Cómo usarla en una consulta:
+SELECT
+    cliente_id,
+    nombre,
+    apellido,
+    fn_gasto_total_cliente(cliente_id) AS Gasto_Total
+FROM CLIENTES;
+----------------------------------------------------------------------------------------------------------
+/*
+Creación de Vistas
+¿Qué es?
+Una tabla virtual basada en el resultado de una consulta SELECT. No almacena datos por sí misma, 
+sino que muestra los datos de las tablas subyacentes de una manera específica.
+
+¿Para qué sirve?
+Para simplificar consultas complejas. Si siempre haces un JOIN de 4 tablas, creas una vista y así solo consultas la vista
+como si fuera una tabla simple. También es útil para la seguridad, mostrando solo ciertas columnas a ciertos usuarios.
+
+Ejemplo Práctico:
+Esta vista muestra un resumen completo de los pedidos, uniendo 4 tablas
+*/
+CREATE OR REPLACE VIEW V_RESUMEN_PEDIDOS AS
+SELECT
+    p.pedido_id,
+    p.fecha_pedido,
+    p.estado_pedido,
+    c.nombre || ' ' || c.apellido AS nombre_cliente,
+    c.pais,
+    pr.nombre_producto,
+    dp.cantidad,
+    dp.precio_unitario,
+    dp.subtotal_linea
+FROM PEDIDOS p
+JOIN CLIENTES c ON p.cliente_id = c.cliente_id
+JOIN DETALLE_PEDIDO dp ON p.pedido_id = dp.pedido_id
+JOIN PRODUCTOS pr ON dp.producto_id = pr.producto_id;
+/
+
+-- Cómo usarla:
+SELECT * FROM V_RESUMEN_PEDIDOS WHERE pais = 'Costa Rica';
+---------------------------------------------------------------------------------------
+/*
+Uso de Secuencias
+Recordatorio rápido: Una secuencia es un objeto de Oracle que funciona como un contador automático de números.
+Su principal uso es generar valores únicos para las claves primarias (PRIMARY KEY), evitando que tengas que calcular manualmente 
+cuál es el siguiente ID disponible.
+
+Práctica: Crear y Usar Secuencias
+Vamos a crear las secuencias para tus tablas principales. Como ya tienes datos, usaremos START WITH para indicarle a
+la secuencia que empiece a contar desde el último número que ya usaste.
+*/
+-- Creamos una secuencia para los nuevos clientes. El último ID fue 13, así que empezamos en 14.
+CREATE SEQUENCE seq_clientes
+START WITH 14
+INCREMENT BY 1;
+
+-- Creamos una secuencia para los nuevos productos. El último ID fue 114, empezamos en 115.
+CREATE SEQUENCE seq_productos
+START WITH 115
+INCREMENT BY 1;
+
+-- Creamos una secuencia para los nuevos pedidos. El último ID fue 1015, empezamos en 1016.
+CREATE SEQUENCE seq_pedidos
+START WITH 1016
+INCREMENT BY 1;
+
+/*
+Paso 2: Usar las Secuencias para Insertar Datos
+
+Ahora, la magia de las secuencias es que ya no necesitas especificar el ID al insertar. Usas la pseudocolumna .NEXTVAL para que la secuencia te dé el siguiente número automáticamente.
+
+Ejemplo: Vamos a insertar un nuevo cliente sin preocuparnos por su ID.*/
+-- Fíjate cómo usamos 'seq_clientes.NEXTVAL' en lugar de un número.
+INSERT INTO CLIENTES (cliente_id, nombre, apellido, email, ciudad, pais)
+VALUES (seq_clientes.NEXTVAL, 'Marco', 'Aurelio', 'marco.aurelio@email.com', 'Roma', 'Italia');
+-----------------------------------------------------------------------------------
+/*
+Procedimientos con Cursores
+¿Qué es?
+Un cursor es como un puntero que te permite procesar el resultado de una consulta fila por fila dentro de un procedimiento o función.
+
+¿Para qué sirve?
+Cuando necesitas realizar una acción compleja para cada fila devuelta por una consulta. Por ejemplo, revisar el stock de cada producto y enviar una alerta si es bajo.
+
+Ejemplo Práctico:
+Este procedimiento usa un cursor para revisar el stock de todos los productos y mostrar una advertencia si es menor a 50.
+*/
+CREATE OR REPLACE PROCEDURE sp_revisar_stock_bajo AS
+    -- 1. Declarar el cursor
+    CURSOR cur_productos_bajos IS
+        SELECT nombre_producto, stock_disponible
+        FROM PRODUCTOS
+        WHERE stock_disponible < 50;
+        
+    v_nombre_producto VARCHAR2(255);
+    v_stock NUMBER;
+BEGIN
+    -- 2. Abrir el cursor
+    OPEN cur_productos_bajos;
+    
+    -- 3. Iniciar un bucle para recorrer las filas
+    LOOP
+        -- 4. Obtener los datos de la fila actual
+        FETCH cur_productos_bajos INTO v_nombre_producto, v_stock;
+        
+        -- 5. Salir del bucle si no hay más filas
+        EXIT WHEN cur_productos_bajos%NOTFOUND;
+        
+        -- 6. Procesar la fila
+        DBMS_OUTPUT.PUT_LINE('¡ALERTA DE STOCK BAJO! Producto: ' || v_nombre_producto || ' - Quedan solo: ' || v_stock);
+    END LOOP;
+    
+    -- 7. Cerrar el cursor
+    CLOSE cur_productos_bajos;
+END;
+/
+
+-- Cómo usarlo:
+BEGIN
+    sp_revisar_stock_bajo;
+END;
+/
