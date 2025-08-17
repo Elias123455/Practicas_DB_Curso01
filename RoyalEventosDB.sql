@@ -416,6 +416,11 @@ FROM Pagos p
 JOIN Evento e ON p.idEvento = e.idEvento
 JOIN Cliente c ON e.idCliente = c.idCliente;
 
+select * from Cliente;
 
+--Practica
+select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota,fecha as "Descripcion_Cliente" from Cliente
+where fecha > SYSDATE -50;
 
-
+select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota || ' registro: ' || fecha as "Descripcion_Cliente" from Cliente
+where fecha between to_date('01-06-2025', 'dd-mm-yyyy') and to_date('30-06-2025', 'dd-mm-yyyy');

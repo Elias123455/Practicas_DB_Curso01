@@ -217,6 +217,9 @@ SELECT pedido_id, fecha_pedido, estado_pedido
 FROM PEDIDOS
 WHERE estado_pedido = 'Pendiente';
 
+--practica
+select cliente_id,nombre,apellido from CLIENTES where cliente_id = 4;
+
 /*WHERE con IN (para múltiples valores en una columna):
 Productos con ID 101 o 103:*/
 SELECT producto_id, nombre_producto, precio
@@ -233,6 +236,11 @@ Productos con precio entre 50 y 200 (ambos inclusive):*/
 SELECT nombre_producto, precio
 FROM PRODUCTOS
 WHERE precio BETWEEN 50.00 AND 200.00;
+
+--Practica
+select pedido_id, cliente_id, fecha_pedido from PEDIDOS
+where fecha_pedido 
+BETWEEN to_date('2025-01-01', 'yyyy-mm-dd') and to_date('2025-12-31', 'yyyy-mm-dd');
 
 --Pedidos realizados en el año 2023 (o un rango de fechas):
 -- Asumiendo que fechas de pedido son de 2023
