@@ -97,3 +97,4 @@ select nom_cliente from clientes where dir_cliente LIKE '%Alajuela';
 
 select cliente_id,nom_cliente from clientes where cliente_id in (1,5);
 select desp_prod,cod_prod from productos where categoria_id in(1,5);
+

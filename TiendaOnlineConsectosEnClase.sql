@@ -235,7 +235,8 @@ WHERE estado_pedido IN ('Procesando', 'Enviado');
 Productos con precio entre 50 y 200 (ambos inclusive):*/
 SELECT nombre_producto, precio
 FROM PRODUCTOS
-WHERE precio BETWEEN 50.00 AND 200.00;
+WHERE precio
+BETWEEN 50.00 AND 200.00;
 
 --Practica
 select pedido_id, cliente_id, fecha_pedido from PEDIDOS
@@ -290,10 +291,14 @@ SELECT nombre_producto, precio
 FROM PRODUCTOS
 ORDER BY precio DESC;
 
---Detalles de pedido ordenados por ID de pedido y luego por cantidad (descendente):
-SELECT pedido_id, producto_id, cantidad
-FROM DETALLE_PEDIDO
-ORDER BY pedido_id ASC, cantidad DESC;
+SELECT
+    nombre,
+    apellido,
+    pais
+FROM
+    CLIENTES
+ORDER BY
+    pais, nombre; -- Ordena por país (ASC por defecto), luego por nombre (ASC por defecto)
 
 /* Expresiones Condicionales (CASE):
 Permite definir diferentes salidas basadas en condiciones, similar a un "if-then-else".
@@ -308,6 +313,13 @@ SELECT
     END AS Categoria_Precio
 FROM PRODUCTOS;
 
+SELECT
+    nombre_producto,
+    precio
+FROM
+    PRODUCTOS
+ORDER BY
+    precio DESC; -- Orden descendente por precio
 --Mostrar el estado del pedido de forma más descriptiva:
 SELECT
     pedido_id,
@@ -364,6 +376,12 @@ SELECT
     apellido Apellido_Cliente
 FROM CLIENTES;
 
+/*practica  */
+select 
+pedido_id as "Número de Pedido" , 
+fecha_pedido "Fecha de la Orden"
+from pedidos;
+
 /* Alias para Tablas
 Esto  permite usar un nombre corto (normalmente una o dos letras) para 
 referirte a una tabla. Esto es indispensable para JOINs, donde necesitas 
@@ -376,6 +394,17 @@ SELECT
     c.pais
 FROM
     CLIENTES c; -- Se define el alias 'c' aquí
+    
+--Practica
+SELECT
+    c.nombre,
+    c.apellido,
+    p.pedido_id
+FROM
+    CLIENTES c
+JOIN
+    PEDIDOS p ON c.cliente_id = p.cliente_id;
+    
 /*Como se ver en este ejemplo, en lugar de escribir CLIENTES.cliente_id,
 solo usamos c.cliente_id, lo que hace la consulta mucho más limpia.*/
 
@@ -505,6 +534,12 @@ RIGHT JOIN PRODUCTOS p: La tabla de la derecha (PRODUCTOS) es la que se usará co
 ON dp.producto_id = p.producto_id: La condición de unión.
 El resultado de esta consulta mostrará todos los productos de la tabla PRODUCTOS. Los productos que 
 no han sido incluidos en ningún detalle de pedido aparecerán en la lista, pero sus columnas de pedido_id y cantidad se mostrarán como NULL.*/
+--Practicas join
+select c.nombre,c.apellido, p.estado_pedido
+from CLIENTES c
+full outer join PEDIDOS p ON c.cliente_id = p.cliente_id;
+
+
 -----------------------------------------------------------------------------------------------------------------------
 
 /*

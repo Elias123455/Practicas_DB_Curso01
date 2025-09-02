@@ -94,11 +94,6 @@ CREATE TABLE Evento_Staff (
     FOREIGN KEY (idStaff) REFERENCES Staff(idStaff)
 );
 
-
-
-
-
-
 --inserts de las tablas
 
 -- CLIENTE
@@ -417,10 +412,38 @@ JOIN Evento e ON p.idEvento = e.idEvento
 JOIN Cliente c ON e.idCliente = c.idCliente;
 
 select * from Cliente;
+select * from evento;
 
 --Practica
 select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota,fecha as "Descripcion_Cliente" from Cliente
-where fecha > SYSDATE -50;
+where fecha > SYSDATE -6;
 
 select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota || ' registro: ' || fecha as "Descripcion_Cliente" from Cliente
 where fecha between to_date('01-06-2025', 'dd-mm-yyyy') and to_date('30-06-2025', 'dd-mm-yyyy');
+
+select 
+    'El tipo de evento: '|| tipoEvento || ', tiene ' || cantidadInvitados ||' invitados, por lo cual es: '|| 
+    case 
+      when cantidadInvitados < 100 then 'pequeño'
+      when cantidadInvitados >= 100 and cantidadInvitados < 250 then 'mediano'
+      else 'grande' 
+   end as tamaño_evento 
+from evento;
+
+--order by
+select idEvento, tipoEvento, cantidadInvitados
+from evento
+order by cantidadInvitados desc ;
+
+select 'Cliente: ' || c.nombreCliente || ' - Evento: ' || e.tipoEvento || ' - Categoria: ' 
+|| e.presupuestoCotizado || ' - Locacion: ' || l.nombreLocacion || ' - Estado: ' || e.estado ||
+case 
+  when e.presupuestoCotizado > 5000000 then 'Premiun'
+  when e.presupuestoCotizado < 5000000 and e.presupuestoCotizado >= 2000000 then 'Estandar'
+  when e.presupuestoCotizado < 2000000 then 'Economico' end as "Reporte: Eventos Sociales Pendientes"
+from Cliente c
+inner join Evento e on c.idCliente = e.idCliente
+inner join Locacion l on e.idLocacion = l.idLocacion
+where e.tipoEvento in 'Social' 
+and  e.estado in ('Cotizado' , 'Aprobado' )
+order by e.presupuestoCotizado desc;
