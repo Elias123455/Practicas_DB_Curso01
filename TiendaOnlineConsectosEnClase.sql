@@ -192,6 +192,93 @@ INSERT INTO DETALLE_PEDIDO (pedido_id, producto_id, cantidad, precio_unitario) V
 -- INSERT INTO PEDIDOS (pedido_id, cliente_id, estado_pedido) VALUES (1004, 999, 'Pendiente');
 -- DELETE FROM CLIENTES WHERE cliente_id = 1;
 -- INSERT INTO DETALLE_PEDIDO (pedido_id, producto_id, cantidad, precio_unitario) VALUES (1001, 101, 1, 1800.00);
+-----------------------------------------------------------------------------------------------------------------------------
+--script masivo
+-- ========= INICIO: SCRIPT DE INSERCIÓN MASIVA PARA TIENDAONLINE =========
+
+DECLARE
+  v_cliente_id   CLIENTES.cliente_id%TYPE;
+  v_producto_id  PRODUCTOS.producto_id%TYPE;
+  v_precio_prod  PRODUCTOS.precio%TYPE;
+  v_nuevo_pedido_id PEDIDOS.pedido_id%TYPE;
+BEGIN
+    FOR i IN 1..100 LOOP
+        -- Seleccionar un cliente al azar
+        SELECT cliente_id INTO v_cliente_id
+        FROM (SELECT cliente_id FROM CLIENTES ORDER BY DBMS_RANDOM.VALUE)
+        WHERE ROWNUM = 1;
+
+        -- Obtener el siguiente ID de pedido de la secuencia
+        SELECT seq_pedidos.NEXTVAL INTO v_nuevo_pedido_id FROM dual;
+
+        -- Insertar la cabecera del pedido
+        INSERT INTO PEDIDOS (pedido_id, cliente_id, estado_pedido)
+        VALUES (
+            v_nuevo_pedido_id,
+            v_cliente_id,
+            CASE TRUNC(DBMS_RANDOM.VALUE(1, 5))
+                WHEN 1 THEN 'Pendiente'
+                WHEN 2 THEN 'Procesando'
+                WHEN 3 THEN 'Enviado'
+                ELSE 'Entregado'
+            END
+        );
+
+        -- Insertar entre 1 y 5 productos diferentes en el detalle del pedido
+        FOR j IN 1..TRUNC(DBMS_RANDOM.VALUE(1, 6)) LOOP
+            BEGIN
+                -- Seleccionar un producto al azar
+                SELECT producto_id, precio INTO v_producto_id, v_precio_prod
+                FROM (SELECT producto_id, precio FROM PRODUCTOS ORDER BY DBMS_RANDOM.VALUE)
+                WHERE ROWNUM = 1;
+
+                -- Insertar el detalle
+                INSERT INTO DETALLE_PEDIDO (pedido_id, producto_id, cantidad, precio_unitario)
+                VALUES (
+                    v_nuevo_pedido_id,
+                    v_producto_id,
+                    TRUNC(DBMS_RANDOM.VALUE(1, 5)), -- Cantidad aleatoria
+                    v_precio_prod -- Precio del producto en ese momento
+                );
+            EXCEPTION
+                WHEN DUP_VAL_ON_INDEX THEN -- Si el producto ya está en la factura, lo ignora y sigue
+                    NULL;
+            END;
+        END LOOP;
+    END LOOP;
+    COMMIT;
+END;
+/
+
+PROMPT ¡100 nuevos pedidos con sus detalles han sido insertados!;
+--------------------------------------------------------------------------------------------------------
+-- ========= SCRIPT PARA CORREGIR LA SECUENCIA DE PEDIDOS =========
+
+CREATE OR REPLACE TRIGGER trg_actualizar_total_pedido
+AFTER INSERT OR UPDATE OR DELETE ON DETALLE_PEDIDO
+FOR EACH ROW
+BEGIN
+    IF INSERTING THEN
+        -- Si es una nueva línea, suma el subtotal al total del pedido
+        UPDATE PEDIDOS
+        SET total_pedido = total_pedido + :NEW.subtotal_linea
+        WHERE pedido_id = :NEW.pedido_id;
+        
+    ELSIF DELETING THEN
+        -- Si se borra una línea, resta el subtotal del total del pedido
+        UPDATE PEDIDOS
+        SET total_pedido = total_pedido - :OLD.subtotal_linea
+        WHERE pedido_id = :OLD.pedido_id;
+        
+    ELSIF UPDATING THEN
+        -- Si se actualiza una línea, ajusta la diferencia
+        UPDATE PEDIDOS
+        SET total_pedido = total_pedido - :OLD.subtotal_linea + :NEW.subtotal_linea
+        WHERE pedido_id = :NEW.pedido_id;
+    END IF;
+END;
+/
+-----------------------------------------------------------------------------------------------------------------------------
 
 --Obtener todas las columnas y filas de una tabla:
 SELECT *
@@ -439,7 +526,7 @@ FROM
     DETALLE_PEDIDO
 GROUP BY
     pedido_id;
-    
+----------------------------------------------------------------------------------------------------------------------------    
 /* Uso de HAVING (filtrando grupos)
 Para encontrar solo los clientes que han realizado más de un pedido, 
 el asistente indica que se debe usar HAVING para filtrar el resultado de la función COUNT():*/
@@ -453,6 +540,9 @@ GROUP BY
 HAVING
     COUNT(pedido_id) > 1;
 
+
+
+-----------------------------------------------------------------------------------------------------------------------------
 /*El INNER JOIN no se limita a unir solo dos tablas. Se pueden unir tantas tablas 
 como sean necesarias para obtener la información deseada, siempre que exista una columna 
 común entre ellas. Esto se realiza encadenando las cláusulas INNER JOIN.
@@ -541,7 +631,28 @@ full outer join PEDIDOS p ON c.cliente_id = p.cliente_id;
 
 
 -----------------------------------------------------------------------------------------------------------------------
-
+--group by
+SELECT
+    estado_pedido,
+    COUNT(*) AS "Cantidad_de_Pedidos" -- Contamos las filas en cada grupo de 'estado_pedido'
+FROM
+    PEDIDOS
+GROUP BY
+    estado_pedido;
+    
+    
+select stock_disponible,
+    COUNT(*) AS "Cantidad de Pedidos",
+    AVG(precio) AS "Precio Promedio ",
+    MAX(precio) AS "Precio Más Caro",
+    MIN(precio) AS "Precio Más Barato"
+FROM
+    PRODUCTOS
+WHERE stock_disponible < 100 
+GROUP BY
+    stock_disponible
+order by stock_disponible desc;
+-------------------------------------------------------------------------------------------------------------------------------
 /*
 Creación de Procedimientos Almacenados
 ¿Qué es?
@@ -570,6 +681,18 @@ BEGIN
 END;
 /
 ---------------------------------------------------------------------------------------------------
+--clausula con distint
+--para eliminar filas duplicadas de un conjunto de resultados
+SELECT COUNT(DISTINCT cliente_id) AS "Total de Clientes Únicos"
+FROM PEDIDOS;
+
+--practica 01
+select DISTINCT pais
+from CLIENTES;
+
+select count(distinct pais) as "Paises de clientes"
+from CLIENTES;
+--------------------------------------------------------------------------------
 /*
 Creación de Triggers
 ¿Qué es?

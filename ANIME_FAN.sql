@@ -203,4 +203,21 @@ LEFT JOIN -- <<-- ¡AQUÍ ESTÁ EL CAMBIO!
 WHERE
     a.titulo IN ('Naruto', 'Dragon Ball', 'My Hero Academia'); 
 
+
  
+SELECT
+    a.titulo,
+    COUNT(p.personaje_id) AS "Cantidad_de_Personajes",
+    COUNT(DISTINCT ph.habilidad_id) AS "Habilidades_Unicas"
+FROM
+    Animes a
+JOIN
+    Personajes p ON a.anime_id = p.anime_id
+LEFT JOIN -- Usamos LEFT JOIN por si un anime no tiene habilidades registradas
+    Personaje_Habilidades ph ON p.personaje_id = ph.personaje_id
+GROUP BY
+    a.titulo -- Agrupamos por el título del anime
+HAVING
+    COUNT(p.personaje_id) > 3 -- Filtramos los grupos con más de 3 personajes
+ORDER BY
+    "Habilidades_Unicas" DESC; -- Ordenamos por la nueva columna calculada

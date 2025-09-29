@@ -355,7 +355,67 @@ INSERT INTO Evento_Staff (idEvento, idStaff) VALUES (9, 2);
 INSERT INTO Evento_Staff (idEvento, idStaff) VALUES (9, 5);
 
 INSERT INTO Evento_Staff (idEvento, idStaff) VALUES (10, 8);
+---------------------------------------------------------------------------------------------------
+--segundo script
+-- ========= INICIO: SCRIPT DE INSERCIÓN MASIVA (CORREGIDO) =========
 
+BEGIN
+    -- Insertar 50 eventos nuevos
+    FOR i IN 1..50 LOOP
+        INSERT INTO Evento (tipoEvento, cantidadInvitados, presupuestoCotizado, presupuestoFinal, estado, fechaEvento, idCliente, idLocacion)
+        VALUES (
+            CASE WHEN MOD(i, 3) = 0 THEN 'Corporativo' ELSE 'Social' END,
+            ROUND(DBMS_RANDOM.VALUE(30, 500)),
+            ROUND(DBMS_RANDOM.VALUE(1000000, 20000000), 2),
+            NULL,
+            CASE WHEN MOD(i, 4) = 0 THEN 'Realizado' WHEN MOD(i, 4) = 1 THEN 'Aprobado' ELSE 'Cotizado' END,
+            TO_DATE('2025-01-01', 'YYYY-MM-DD') + TRUNC(DBMS_RANDOM.VALUE(0, 364)),
+            ROUND(DBMS_RANDOM.VALUE(1, 10)),
+            ROUND(DBMS_RANDOM.VALUE(1, 10))
+        );
+    END LOOP;
+    
+    -- Insertar un pago para cada evento que aún no tenga uno (LÓGICA CORREGIDA)
+    FOR rec IN (
+        SELECT e.idEvento FROM Evento e WHERE NOT EXISTS (SELECT 1 FROM Pagos p WHERE p.idEvento = e.idEvento)
+    ) LOOP
+        INSERT INTO Pagos (tipoPago, saldo, montoPago, fechaPago, idEvento)
+        VALUES (
+            1,
+            ROUND(DBMS_RANDOM.VALUE(500000, 2000000), 2),
+            ROUND(DBMS_RANDOM.VALUE(1000000, 5000000), 2),
+            TO_DATE('2025-01-01', 'YYYY-MM-DD') + TRUNC(DBMS_RANDOM.VALUE(0, 364)),
+            rec.idEvento
+        );
+    END LOOP;
+
+    -- Asignar proveedores y staff aleatoriamente a los eventos
+    FOR rec IN (SELECT idEvento FROM Evento) LOOP
+        FOR i IN 1..ROUND(DBMS_RANDOM.VALUE(1, 3)) LOOP
+            BEGIN
+                INSERT INTO Evento_Proveedor (idEvento, idProveedor) VALUES (rec.idEvento, ROUND(DBMS_RANDOM.VALUE(1, 10)));
+            EXCEPTION
+                WHEN DUP_VAL_ON_INDEX THEN NULL;
+            END;
+        END LOOP;
+        
+        FOR i IN 1..ROUND(DBMS_RANDOM.VALUE(2, 4)) LOOP
+            BEGIN
+                INSERT INTO Evento_Staff (idEvento, idStaff) VALUES (rec.idEvento, ROUND(DBMS_RANDOM.VALUE(1, 10)));
+            EXCEPTION
+                WHEN DUP_VAL_ON_INDEX THEN NULL;
+            END;
+        END LOOP;
+    END LOOP;
+    
+    COMMIT;
+END;
+/
+
+PROMPT ¡50 nuevos eventos con sus detalles han sido insertados correctamente!;
+
+
+----------------------------------------------------------------------------------------------------
 
 --consultas
 
@@ -363,14 +423,14 @@ INSERT INTO Evento_Staff (idEvento, idStaff) VALUES (10, 8);
 SELECT  
     c.idCliente,
     c.nombreCliente AS Cliente,
-    e.idEvento AS ID_Evento,
-    e.tipoEvento AS Tipo_Evento,
-    e.fechaEvento AS Fecha_Evento,
-    e.estado AS Estado_Evento,
-    p.idPago AS ID_Pago,
-    p.montoPago AS Monto_Pago,
-    p.saldo AS Saldo_Pendiente,
-    p.fechaPago AS Fecha_Pago
+    e.idEvento  AS "ID Evento" ,
+    e.tipoEvento AS "Tipo Evento",
+    e.fechaEvento AS "Fecha Evento",
+    e.estado AS "Estado Evento",
+    p.idPago AS "ID Pago",
+    p.montoPago AS "Monto Pago",
+    p.saldo AS "Saldo Pendiente",
+    p.fechaPago AS "Fecha Pago"
 FROM  
     Cliente c
 JOIN  
@@ -380,7 +440,7 @@ LEFT JOIN
 WHERE  
     p.tipoPago = 1
 ORDER BY  
-    c.idCliente, e.idEvento, p.fechaPago;
+    c.nombreCliente asc;
 
 
 --evento que tenga el nombre del cliente, la locacion, el staff y el proveedor
@@ -415,11 +475,14 @@ select * from Cliente;
 select * from evento;
 
 --Practica
-select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota,fecha as "Descripcion_Cliente" from Cliente
+select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota,fecha as "Descripcion_Cliente" 
+from Cliente
 where fecha > SYSDATE -6;
 
-select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota || ' registro: ' || fecha as "Descripcion_Cliente" from Cliente
-where fecha between to_date('01-06-2025', 'dd-mm-yyyy') and to_date('30-06-2025', 'dd-mm-yyyy');
+select 'El cliente: '||nombreCliente || ' presenta la condicion: ' || nota || ' registro: ' || fecha as "Descripcion Cliente" 
+from Cliente
+where fecha 
+between to_date('01-06-2025', 'dd-mm-yyyy') and to_date('30-06-2025', 'dd-mm-yyyy');
 
 select 
     'El tipo de evento: '|| tipoEvento || ', tiene ' || cantidadInvitados ||' invitados, por lo cual es: '|| 
@@ -431,19 +494,77 @@ select
 from evento;
 
 --order by
-select idEvento, tipoEvento, cantidadInvitados
+select idEvento||' - '|| 
+tipoEvento||' - '||
+cantidadInvitados "ID  -  Evento  -  Cantidad de invitados"
 from evento
 order by cantidadInvitados desc ;
 
-select 'Cliente: ' || c.nombreCliente || ' - Evento: ' || e.tipoEvento || ' - Categoria: ' 
+select 'Cliente: ' || c.nombreCliente || ' - Evento: ' || e.tipoEvento || ' - Cotizacion: ' 
 || e.presupuestoCotizado || ' - Locacion: ' || l.nombreLocacion || ' - Estado: ' || e.estado ||
 case 
-  when e.presupuestoCotizado > 5000000 then 'Premiun'
-  when e.presupuestoCotizado < 5000000 and e.presupuestoCotizado >= 2000000 then 'Estandar'
-  when e.presupuestoCotizado < 2000000 then 'Economico' end as "Reporte: Eventos Sociales Pendientes"
+  when e.presupuestoCotizado > 5000000 then ' Premiun'
+  when e.presupuestoCotizado < 5000000 and e.presupuestoCotizado >= 2000000 then ' Estandar'
+  when e.presupuestoCotizado < 2000000 then ' Economico' end as "Reporte: Eventos Sociales Pendientes"
 from Cliente c
 inner join Evento e on c.idCliente = e.idCliente
 inner join Locacion l on e.idLocacion = l.idLocacion
 where e.tipoEvento in 'Social' 
 and  e.estado in ('Cotizado' , 'Aprobado' )
 order by e.presupuestoCotizado desc;
+
+--group by
+SELECT
+   ' Evento: ' || tipoEvento || ' - cantidad: ' ||
+    COUNT(*) AS "Cuantos Eventos Hay"
+FROM
+    Evento
+GROUP BY
+    tipoEvento;
+    
+    
+--having
+select tipoEvento,
+AVG(presupuestoCotizado) as "Evento cotizacion"
+from Evento
+group by tipoEvento
+having AVG(presupuestoCotizado) > 4000000;
+
+
+-- Tu consulta aquí (JOIN PAGOS y CLIENTE, GROUP BY nombre de cliente, COUNT de pagos)
+select 
+c.nombreCliente ,
+count(p.montoPago) as "Pagos Realizados"
+from Cliente c
+join Pagos p ON c.id_cliente = p.id_cliente
+GROUP BY c.nombreCliente;
+
+
+SELECT
+    c.nombreCliente,
+    SUM(e.presupuestoCotizado) AS PresupuestoTotal,
+    CASE
+        WHEN SUM(e.presupuestoCotizado) > 10000000 THEN 'Cliente VIP'
+        ELSE 'Cliente Pequeño'
+    END AS Categoria_Cliente
+FROM
+    Cliente c
+LEFT JOIN
+    Evento e ON c.idCliente = e.idCliente
+WHERE
+    e.tipoEvento = 'Corporativo' -- Filtramos las filas ANTES de agrupar
+GROUP BY
+    c.nombreCliente
+HAVING
+    SUM(e.presupuestoCotizado) > 5000000 -- Filtramos los grupos DESPUÉS de agrupar
+ORDER BY
+    PresupuestoTotal DESC;
+
+
+
+
+
+
+
+
+
